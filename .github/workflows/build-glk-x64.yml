@@ -13,14 +13,14 @@ jobs:
 
       - uses: microsoft/setup-msbuild@v2
 
-     - name: Detect VS toolset
-       shell: pwsh
-       run: |
-         $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
-         if (-not $vs) { throw "No Visual Studio found" }
-         if (Test-Path (Join-Path $vs 'VC\Tools\MSVC')) { $pt='v143' } else { $pt='v142' }
-         "PLATFORMTOOLSET=$pt" | Out-File -FilePath $env:GITHUB_ENV -Append
-         Write-Host "Using PlatformToolset=$pt"
+      - name: Detect VS toolset
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          if (-not $vs) { throw "No Visual Studio found" }
+          if (Test-Path (Join-Path $vs 'VC\Tools\MSVC')) { $pt='v143' } else { $pt='v142' }
+          "PLATFORMTOOLSET=$pt" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Using PlatformToolset=$pt"
 
       # Patcha just GlkDll/Glk.vcxproj för Release|x64
       - name: Configure Release x64 (MFC/Unicode/DLL)
