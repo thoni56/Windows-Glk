@@ -13,6 +13,15 @@ jobs:
 
       - uses: microsoft/setup-msbuild@v2
 
+     - name: Detect VS toolset
+       shell: pwsh
+       run: |
+         $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+         if (-not $vs) { throw "No Visual Studio found" }
+         if (Test-Path (Join-Path $vs 'VC\Tools\MSVC')) { $pt='v143' } else { $pt='v142' }
+         "PLATFORMTOOLSET=$pt" | Out-File -FilePath $env:GITHUB_ENV -Append
+         Write-Host "Using PlatformToolset=$pt"
+
       # Patcha just GlkDll/Glk.vcxproj för Release|x64
       - name: Configure Release x64 (MFC/Unicode/DLL)
         shell: pwsh
@@ -44,7 +53,7 @@ jobs:
              $grp.SetAttribute('Condition',$cond);
              $x.Project.AppendChild($grp) | Out-Null
           }
-          $set = @{ ConfigurationType='DynamicLibrary'; UseOfMfc='Dynamic'; CharacterSet='Unicode' }
+          $set = @{ ConfigurationType='DynamicLibrary'; UseOfMfc='Dynamic'; CharacterSet='Unicode'; PlatformToolset=$env:PLATFORMTOOLSET }
           foreach ($k in $set.Keys) {
             if ($grp.$k) { $grp.$k.InnerText = $set[$k] }
             else {
@@ -53,7 +62,6 @@ jobs:
               $grp.AppendChild($e) | Out-Null
             }
           }
-          if ($grp.PlatformToolset) { [void]$grp.RemoveChild($grp.PlatformToolset) }
           $idg = $x.Project.ItemDefinitionGroup | Where-Object { $_.Condition -eq $cond }
           if (-not $idg) {
             $idg = $x.CreateElement('ItemDefinitionGroup', $ns);
