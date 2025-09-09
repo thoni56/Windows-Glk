@@ -65,26 +65,37 @@ jobs:
         run: |
           cd $env:ROOT
           $ProgressPreference = 'SilentlyContinue'
+          $ErrorActionPreference = 'Stop'
+
+          function Get-Zip {
+            param([string]$Url,[string]$Out)
+            & curl.exe -L --retry 5 --retry-delay 3 -o $Out $Url
+            if (-not (Test-Path $Out)) { throw "download failed: $Url" }
+          }
 
           # zlib
-          iwr https://zlib.net/zlib131.zip -OutFile zlib.zip
-          Expand-Archive zlib.zip -DestinationPath ztmp -Force
+          Get-Zip 'https://zlib.net/zlib131.zip' 'zlib.zip'
+          mkdir ztmp -Force | Out-Null
+          tar.exe -xf zlib.zip -C ztmp
           $z = Get-ChildItem ztmp -Directory | Select-Object -First 1
           robocopy $z.FullName (Join-Path $PWD 'Libraries\zlib') /MIR /NFL /NDL /NJH /NJS
           $rc=$LASTEXITCODE; if ($rc -ge 8){ throw "robocopy zlib rc=$rc" } else { $LASTEXITCODE=0 }
 
           # libpng
-          iwr https://download.sourceforge.net/libpng/lpng1640.zip -OutFile libpng.zip
-          Expand-Archive libpng.zip -DestinationPath ptmp -Force
+          Get-Zip 'https://download.sourceforge.net/libpng/lpng1640.zip' 'libpng.zip'
+          mkdir ptmp -Force | Out-Null
+          tar.exe -xf libpng.zip -C ptmp
           $p = Get-ChildItem ptmp -Directory | Select-Object -First 1
           robocopy $p.FullName (Join-Path $PWD 'Libraries\libpng') /MIR /NFL /NDL /NJH /NJS
           $rc=$LASTEXITCODE; if ($rc -ge 8){ throw "robocopy libpng rc=$rc" } else { $LASTEXITCODE=0 }
           Copy-Item (Join-Path $PWD 'Libraries\libpng\scripts\pnglibconf.h.prebuilt') (Join-Path $PWD 'Libraries\libpng\pnglibconf.h') -Force
 
           # libjpeg 6b
-          iwr https://download.sourceforge.net/libjpeg/jpegsrc.v6b.tar.gz -OutFile jpeg.tgz
-          tar -xf jpeg.tgz
-          robocopy jpeg-6b (Join-Path $PWD 'Libraries\jpeg') /MIR /NFL /NDL /NJH /NJS
+          Get-Zip 'https://download.sourceforge.net/libjpeg/jpegsrc.v6b.tar.gz' 'jpeg.tgz'
+          mkdir jtmp -Force | Out-Null
+          tar.exe -xzf jpeg.tgz -C jtmp
+          $j = Get-ChildItem jtmp -Directory | Select-Object -First 1
+          robocopy $j.FullName (Join-Path $PWD 'Libraries\jpeg') /MIR /NFL /NDL /NJH /NJS
           $rc=$LASTEXITCODE; if ($rc -ge 8){ throw "robocopy jpeg rc=$rc" } else { $LASTEXITCODE=0 }
           Copy-Item (Join-Path $PWD 'Libraries\jpeg\jconfig.vc') (Join-Path $PWD 'Libraries\jpeg\jconfig.h') -Force
           (Get-Content (Join-Path $PWD 'Libraries\jpeg\jmorecfg.h')) -replace '#ifndef XMD_H','#if !defined(XMD_H) && !defined(_BASETSD_H_)' |
