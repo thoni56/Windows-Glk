@@ -34,7 +34,7 @@ jobs:
           $x.Save($proj)
 
       - name: Build Release x64
-        run: msbuild GlkDll\Glk.sln /m /p:Configuration=Release /p:Platform=x64 /v:m
+        run: msbuild GlkDll\Glk.vcxproj /m /p:Configuration=Release /p:Platform=x64 /v:m
 
       - name: Collect artifacts
         shell: pwsh
