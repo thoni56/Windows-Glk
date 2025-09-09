@@ -20,7 +20,8 @@ jobs:
           $ADV  = Join-Path $ROOT 'Adv\Glk'
           New-Item -ItemType Directory -Force (Split-Path $ADV) | Out-Null
           # Flytta/kopiera in dagens repo till <root>/Adv/Glk
-          robocopy $env:GITHUB_WORKSPACE $ADV /MIR | Out-Null
+          # robocopy $env:GITHUB_WORKSPACE $ADV /MIR | Out-Null
+          Copy-Item -Path "$env:GITHUB_WORKSPACE\*" -Destination $ADV -Recurse -Force
           "ROOT=$ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
           "ADV=$ADV"   | Out-File -FilePath $env:GITHUB_ENV -Append
           # Byt arbetskatalog för resten av jobben
