@@ -28,7 +28,7 @@ jobs:
           $p = Join-Path $PWD 'Glk.vcxproj'
           [xml]$x = Get-Content $p
           # Leta grupp för Release|x64, annars skapa
-          $cond = " '$(Configuration)|$(Platform)' == 'Release|x64' "
+          $cond = " '`$(Configuration)|$(Platform)' == 'Release|x64' "
           $grp = $x.Project.PropertyGroup | Where-Object { $_.Condition -eq $cond }
           if (-not $grp) {
             $grp = $x.CreateElement('PropertyGroup')
