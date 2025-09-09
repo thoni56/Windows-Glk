@@ -20,6 +20,23 @@ jobs:
           $proj = Join-Path $env:GITHUB_WORKSPACE 'GlkDll\Glk.vcxproj'
           [xml]$x = Get-Content $proj
           $ns = $x.DocumentElement.NamespaceURI
+          # Ensure ProjectConfigurations has Release|x64
+          $pc = $x.Project.ItemGroup | Where-Object { $_.Label -eq 'ProjectConfigurations' }
+          if (-not $pc) {
+            $pc = $x.CreateElement('ItemGroup', $ns)
+            $pc.SetAttribute('Label','ProjectConfigurations')
+            $x.Project.PrependChild($pc) | Out-Null
+          }
+          $have = $pc.ProjectConfiguration | Where-Object { $_.Include -eq 'Release|x64' }
+          if (-not $have) {
+            $node = $x.CreateElement('ProjectConfiguration', $ns)
+            $node.SetAttribute('Include','Release|x64')
+            $c = $x.CreateElement('Configuration', $ns); $c.InnerText = 'Release'
+            $p = $x.CreateElement('Platform', $ns);      $p.InnerText = 'x64'
+            $node.AppendChild($c) | Out-Null
+            $node.AppendChild($p) | Out-Null
+            $pc.AppendChild($node) | Out-Null
+          }
           $cond = " '`$(Configuration)|`$(Platform)' == 'Release|x64' "
           $grp = $x.Project.PropertyGroup | Where-Object { $_.Condition -eq $cond }
           if (-not $grp) {
