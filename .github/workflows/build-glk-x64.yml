@@ -20,11 +20,17 @@ jobs:
           $ADV  = Join-Path $ROOT 'Adv\Glk'
           New-Item -ItemType Directory -Force (Split-Path $ADV) | Out-Null
           # Flytta/kopiera in dagens repo till <root>/Adv/Glk
-          # robocopy $env:GITHUB_WORKSPACE $ADV /MIR | Out-Null
-          Copy-Item -Path "$env:GITHUB_WORKSPACE\*" -Destination $ADV -Recurse -Force
+          $ROOT = Resolve-Path (Join-Path $env:GITHUB_WORKSPACE '..')
+          $ADV  = Join-Path $ROOT 'Adv\Glk'
+
+          New-Item -ItemType Directory -Force (Split-Path $ADV) | Out-Null
+          New-Item -ItemType Directory -Force $ADV | Out-Null     # ← se till att Glk/ finns
+
+          robocopy "$env:GITHUB_WORKSPACE" "$ADV" /MIR /NFL /NDL /NJH /NJS
+          $rc = $LASTEXITCODE; if ($rc -ge 8) { throw "robocopy failed with exit code $rc" } else { $LASTEXITCODE = 0 }
+
           "ROOT=$ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
           "ADV=$ADV"   | Out-File -FilePath $env:GITHUB_ENV -Append
-          # Byt arbetskatalog för resten av jobben
           Write-Host "ROOT=$ROOT"
           Write-Host "ADV=$ADV"
 
