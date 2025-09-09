@@ -19,18 +19,38 @@ jobs:
         run: |
           $proj = Join-Path $env:GITHUB_WORKSPACE 'GlkDll\Glk.vcxproj'
           [xml]$x = Get-Content $proj
+          $ns = $x.DocumentElement.NamespaceURI
           $cond = " '`$(Configuration)|`$(Platform)' == 'Release|x64' "
           $grp = $x.Project.PropertyGroup | Where-Object { $_.Condition -eq $cond }
-          if (-not $grp) { $grp = $x.CreateElement('PropertyGroup'); $grp.SetAttribute('Condition',$cond); $x.Project.AppendChild($grp) | Out-Null }
+          if (-not $grp) {
+             $grp = $x.CreateElement('PropertyGroup', $ns);
+             $grp.SetAttribute('Condition',$cond);
+             $x.Project.AppendChild($grp) | Out-Null
+          }
           $set = @{ ConfigurationType='DynamicLibrary'; UseOfMfc='Dynamic'; CharacterSet='Unicode'; PlatformToolset='v143' }
           foreach ($k in $set.Keys) {
             if ($grp.$k) { $grp.$k.InnerText = $set[$k] }
-            else { $e=$x.CreateElement($k); $e.InnerText=$set[$k]; $grp.AppendChild($e) | Out-Null }
+            else {
+              $e=$x.CreateElement($k, $ns);
+              $e.InnerText=$set[$k];
+              $grp.AppendChild($e) | Out-Null
+            }
           }
           $idg = $x.Project.ItemDefinitionGroup | Where-Object { $_.Condition -eq $cond }
-          if (-not $idg) { $idg = $x.CreateElement('ItemDefinitionGroup'); $idg.SetAttribute('Condition',$cond); $x.Project.AppendChild($idg) | Out-Null }
-          if (-not $idg.Link) { $lnk = $x.CreateElement('Link'); $idg.AppendChild($lnk) | Out-Null } else { $lnk = $idg.Link }
-          if (-not $lnk.ModuleDefinitionFile) { $e=$x.CreateElement('ModuleDefinitionFile'); $e.InnerText='Glk.def'; $lnk.AppendChild($e) | Out-Null }
+          if (-not $idg) {
+            $idg = $x.CreateElement('ItemDefinitionGroup', $ns);
+            $idg.SetAttribute('Condition',$cond);
+            $x.Project.AppendChild($idg) | Out-Null
+          }
+          if (-not $idg.Link) {
+            $lnk = $x.CreateElement('Link', $ns)
+            $idg.AppendChild($lnk) | Out-Null
+          } else { $lnk = $idg.Link }
+          if (-not $lnk.ModuleDefinitionFile) {
+            $e=$x.CreateElement('ModuleDefinitionFile', $ns);
+            $e.InnerText='Glk.def';
+            $lnk.AppendChild($e) | Out-Null
+          }
           $x.Save($proj)
 
       - name: Build Release x64
