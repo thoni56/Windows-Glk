@@ -60,6 +60,40 @@ jobs:
           robocopy $v.FullName (Join-Path $PWD 'Libraries\libvorbis') /MIR /NFL /NDL /NJH /NJS
           $rc=$LASTEXITCODE; if ($rc -ge 8){ throw "robocopy vorbis rc=$rc" } else { $LASTEXITCODE=0 }
 
+      - name: Fetch zlib + libpng + libjpeg6b
+        shell: pwsh
+        run: |
+          cd $env:ROOT
+          $ProgressPreference = 'SilentlyContinue'
+
+          # zlib
+          iwr https://zlib.net/zlib131.zip -OutFile zlib.zip
+          Expand-Archive zlib.zip -DestinationPath ztmp -Force
+          $z = Get-ChildItem ztmp -Directory | Select-Object -First 1
+          robocopy $z.FullName (Join-Path $PWD 'Libraries\zlib') /MIR /NFL /NDL /NJH /NJS
+          $rc=$LASTEXITCODE; if ($rc -ge 8){ throw "robocopy zlib rc=$rc" } else { $LASTEXITCODE=0 }
+
+          # libpng
+          iwr https://download.sourceforge.net/libpng/lpng1640.zip -OutFile libpng.zip
+          Expand-Archive libpng.zip -DestinationPath ptmp -Force
+          $p = Get-ChildItem ptmp -Directory | Select-Object -First 1
+          robocopy $p.FullName (Join-Path $PWD 'Libraries\libpng') /MIR /NFL /NDL /NJH /NJS
+          $rc=$LASTEXITCODE; if ($rc -ge 8){ throw "robocopy libpng rc=$rc" } else { $LASTEXITCODE=0 }
+          Copy-Item (Join-Path $PWD 'Libraries\libpng\scripts\pnglibconf.h.prebuilt') (Join-Path $PWD 'Libraries\libpng\pnglibconf.h') -Force
+
+          # libjpeg 6b
+          iwr https://download.sourceforge.net/libjpeg/jpegsrc.v6b.tar.gz -OutFile jpeg.tgz
+          tar -xf jpeg.tgz
+          robocopy jpeg-6b (Join-Path $PWD 'Libraries\jpeg') /MIR /NFL /NDL /NJH /NJS
+          $rc=$LASTEXITCODE; if ($rc -ge 8){ throw "robocopy jpeg rc=$rc" } else { $LASTEXITCODE=0 }
+          Copy-Item (Join-Path $PWD 'Libraries\jpeg\jconfig.vc') (Join-Path $PWD 'Libraries\jpeg\jconfig.h') -Force
+          (Get-Content (Join-Path $PWD 'Libraries\jpeg\jmorecfg.h')) -replace '#ifndef XMD_H','#if !defined(XMD_H) && !defined(_BASETSD_H_)' |
+            Set-Content (Join-Path $PWD 'Libraries\jpeg\jmorecfg.h')
+          $jm = Get-Content (Join-Path $PWD 'Libraries\jpeg\jmorecfg.h')
+          if ($jm -notmatch '#ifndef FAR') {
+            Add-Content (Join-Path $PWD 'Libraries\jpeg\jmorecfg.h') "`r`n#ifndef FAR`r`n#ifdef NEED_FAR_POINTERS`r`n#define FAR  far`r`n#else`r`n#define FAR`r`n#endif`r`n#endif"
+          }
+
       - name: Detect VS toolset
         shell: pwsh
         run: |
