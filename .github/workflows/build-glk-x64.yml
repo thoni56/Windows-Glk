@@ -13,6 +13,26 @@ jobs:
 
       - uses: microsoft/setup-msbuild@v2
 
+      - name: Prepare folder layout (<root>/Adv/Glk and <root>/Libraries)
+        shell: pwsh
+        run: |
+          $ROOT = Resolve-Path (Join-Path $env:GITHUB_WORKSPACE '..')
+          $ADV  = Join-Path $ROOT 'Adv\Glk'
+          New-Item -ItemType Directory -Force (Split-Path $ADV) | Out-Null
+          # Flytta/kopiera in dagens repo till <root>/Adv/Glk
+          robocopy $env:GITHUB_WORKSPACE $ADV /MIR | Out-Null
+          "ROOT=$ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "ADV=$ADV"   | Out-File -FilePath $env:GITHUB_ENV -Append
+          # Byt arbetskatalog för resten av jobben
+          Write-Host "ROOT=$ROOT"
+          Write-Host "ADV=$ADV"
+
+      - name: Fetch Kinder Libraries repo
+        shell: pwsh
+        run: |
+          cd $env:ROOT
+          git clone https://github.com/DavidKinder/Libraries.git Libraries
+
       - name: Detect VS toolset
         shell: pwsh
         run: |
