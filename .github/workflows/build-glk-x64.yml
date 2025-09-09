@@ -44,7 +44,7 @@ jobs:
              $grp.SetAttribute('Condition',$cond);
              $x.Project.AppendChild($grp) | Out-Null
           }
-          $set = @{ ConfigurationType='DynamicLibrary'; UseOfMfc='Dynamic'; CharacterSet='Unicode'; PlatformToolset='v143' }
+          $set = @{ ConfigurationType='DynamicLibrary'; UseOfMfc='Dynamic'; CharacterSet='Unicode' }
           foreach ($k in $set.Keys) {
             if ($grp.$k) { $grp.$k.InnerText = $set[$k] }
             else {
@@ -53,6 +53,7 @@ jobs:
               $grp.AppendChild($e) | Out-Null
             }
           }
+          if ($grp.PlatformToolset) { [void]$grp.RemoveChild($grp.PlatformToolset) }
           $idg = $x.Project.ItemDefinitionGroup | Where-Object { $_.Condition -eq $cond }
           if (-not $idg) {
             $idg = $x.CreateElement('ItemDefinitionGroup', $ns);
