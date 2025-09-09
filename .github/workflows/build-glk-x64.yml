@@ -4,13 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [ main, master ]
-    paths:
-      - '**/*.cpp'
-      - '**/*.c'
-      - '**/*.h'
-      - '**/*.rc'
-      - 'Glk.sln'
-      - 'Glk.vcxproj'
 
 jobs:
   build-windows:
@@ -18,60 +11,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Säkra msbuild i PATH
       - uses: microsoft/setup-msbuild@v2
 
-      # Patcha projekt-egenskaper för Release|x64 (utan att röra källkod)
-      - name: Ensure x64 Release uses MFC/Unicode and DLL
+      # Patcha just GlkDll/Glk.vcxproj för Release|x64
+      - name: Configure Release x64 (MFC/Unicode/DLL)
         shell: pwsh
         run: |
-          $p = Join-Path $PWD 'Glk.vcxproj'
-          [xml]$x = Get-Content $p
-          # Leta grupp för Release|x64, annars skapa
-          $cond = " '`$(Configuration)|$(Platform)' == 'Release|x64' "
+          $proj = Join-Path $env:GITHUB_WORKSPACE 'GlkDll\Glk.vcxproj'
+          [xml]$x = Get-Content $proj
+          $cond = " '$(Configuration)|$(Platform)' == 'Release|x64' "
           $grp = $x.Project.PropertyGroup | Where-Object { $_.Condition -eq $cond }
-          if (-not $grp) {
-            $grp = $x.CreateElement('PropertyGroup')
-            $grp.SetAttribute('Condition', $cond)
-            $x.Project.AppendChild($grp) | Out-Null
-          }
-          # Sätt/överstyr nödvändiga properties
-          $set = @{
-            ConfigurationType = 'DynamicLibrary'
-            UseOfMfc          = 'Dynamic'
-            CharacterSet      = 'Unicode'
-            PlatformToolset   = 'v143'
-          }
+          if (-not $grp) { $grp = $x.CreateElement('PropertyGroup'); $grp.SetAttribute('Condition',$cond); $x.Project.AppendChild($grp) | Out-Null }
+          $set = @{ ConfigurationType='DynamicLibrary'; UseOfMfc='Dynamic'; CharacterSet='Unicode'; PlatformToolset='v143' }
           foreach ($k in $set.Keys) {
-            $n = $grp.$k
-            if ($n) { $n.InnerText = $set[$k] }
-            else {
-              $e = $x.CreateElement($k); $e.InnerText = $set[$k]; $grp.AppendChild($e) | Out-Null
-            }
+            if ($grp.$k) { $grp.$k.InnerText = $set[$k] }
+            else { $e=$x.CreateElement($k); $e.InnerText=$set[$k]; $grp.AppendChild($e) | Out-Null }
           }
-          # Säkerställ att .def används av länkaren
-          $lnk = $x.Project.ItemDefinitionGroup | Where-Object { $_.Condition -eq $cond } |
-                 ForEach-Object { $_.Link } | Select-Object -First 1
-          if (-not $lnk) {
-            $idg = $x.CreateElement('ItemDefinitionGroup'); $idg.SetAttribute('Condition',$cond)
-            $lnk = $x.CreateElement('Link'); $idg.AppendChild($lnk) | Out-Null
-            $x.Project.AppendChild($idg) | Out-Null
-          }
-          if (-not $lnk.ModuleDefinitionFile) {
-            $e = $x.CreateElement('ModuleDefinitionFile'); $e.InnerText = 'Glk.def'
-            $lnk.AppendChild($e) | Out-Null
-          }
-          $x.Save($p)
+          $idg = $x.Project.ItemDefinitionGroup | Where-Object { $_.Condition -eq $cond }
+          if (-not $idg) { $idg = $x.CreateElement('ItemDefinitionGroup'); $idg.SetAttribute('Condition',$cond); $x.Project.AppendChild($idg) | Out-Null }
+          if (-not $idg.Link) { $lnk = $x.CreateElement('Link'); $idg.AppendChild($lnk) | Out-Null } else { $lnk = $idg.Link }
+          if (-not $lnk.ModuleDefinitionFile) { $e=$x.CreateElement('ModuleDefinitionFile'); $e.InnerText='Glk.def'; $lnk.AppendChild($e) | Out-Null }
+          $x.Save($proj)
 
       - name: Build Release x64
-        run: msbuild Glk.sln /m /p:Configuration=Release /p:Platform=x64 /v:m
+        run: msbuild GlkDll\Glk.sln /m /p:Configuration=Release /p:Platform=x64 /v:m
 
       - name: Collect artifacts
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
-          Get-ChildItem -Recurse -File -Include Glk.dll,Glk.lib,Glk.pdb |
-            Copy-Item -Destination out -Force
+          Copy-Item GlkDll\x64\Release\Glk.dll -Destination out -Force
+          Copy-Item GlkDll\x64\Release\Glk.lib -Destination out -ErrorAction SilentlyContinue
+          Copy-Item GlkDll\x64\Release\Glk.pdb -Destination out -ErrorAction SilentlyContinue
           Get-ChildItem out
 
       - name: Upload Windows artifacts
@@ -84,24 +55,20 @@ jobs:
     needs: build-windows
     runs-on: ubuntu-latest
     steps:
-      - name: Download DLL
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: windowsglk-x64
           path: .
 
-      - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y mingw-w64 binutils-mingw-w64 gendef
+      - run: sudo apt-get update && sudo apt-get install -y mingw-w64 binutils-mingw-w64 gendef
 
-      - name: Generate def and import lib
+      - name: Generate MinGW import lib
         run: |
-          ls -l
           gendef Glk.dll
           dlltool -m i386:x86-64 -d Glk.def -D Glk.dll -l libGlk.dll.a
           file Glk.dll libGlk.dll.a || true
 
-      - name: Upload MinGW importlib
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: windowsglk-x64-mingw
           path: |
